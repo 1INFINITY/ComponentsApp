@@ -1,24 +1,31 @@
 package ru.mirea.ivashechkinav.componentsapp
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
 import android.content.ComponentName
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.os.Build
 import android.os.IBinder
+import android.provider.SyncStateContract
 import android.util.Log
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import ru.mirea.ivashechkinav.componentsapp.broadcast.BluetoothModeReceiver
+import ru.mirea.ivashechkinav.componentsapp.service.MyBackgroundService
+import ru.mirea.ivashechkinav.componentsapp.service.MyForegroundService
+import ru.mirea.ivashechkinav.componentsapp.service.TimerService
 
 class MainActivity : AppCompatActivity() {
     val TAG = this::class.simpleName ?: ""
 
+    lateinit var bluetoothReceiver: BluetoothModeReceiver
     lateinit var timerServiceBinder: TimerService.LocalBinder
     var isConnected = false
 
@@ -47,8 +54,21 @@ class MainActivity : AppCompatActivity() {
         }
         initTimerService()
         initButtons()
+        registerBluetoothListener()
     }
-
+    private fun registerBluetoothListener() {
+        bluetoothReceiver = BluetoothModeReceiver()
+        registerReceiver(
+            bluetoothReceiver,
+            IntentFilter().also {
+                it.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
+                it.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+            }
+        )
+    }
+    private fun unregisterBluetoothListener() {
+        unregisterReceiver(bluetoothReceiver)
+    }
     private fun initTimerService() {
         Intent(this, TimerService::class.java).also {
             bindService(
@@ -112,6 +132,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         unbindTimerService()
+        unregisterBluetoothListener()
         super.onDestroy()
     }
 }

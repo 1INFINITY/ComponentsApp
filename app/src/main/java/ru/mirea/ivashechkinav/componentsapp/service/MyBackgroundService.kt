@@ -1,4 +1,4 @@
-package ru.mirea.ivashechkinav.componentsapp
+package ru.mirea.ivashechkinav.componentsapp.service
 
 import android.app.Service
 import android.content.Intent
