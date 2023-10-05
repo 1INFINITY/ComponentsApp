@@ -8,6 +8,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,35 +18,53 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-class TimerService : Service() {
+class CountDownTimer(scope: CoroutineScope) {
 
-    private val TAG = this::class.simpleName ?: ""
+    private val _timeState = MutableStateFlow(MAX_COUNT)
+    val timeState = _timeState.asStateFlow()
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO)
-    private val timeState = MutableStateFlow<Int>(0)
     private var isPaused = AtomicBoolean(true)
     private val lock = ReentrantLock()
     private val condition = lock.newCondition()
 
     init {
-        serviceScope.launch {
-            repeat(100) {
-                delay(500)
+        scope.launch {
+            repeat(MAX_COUNT) {
+                delay(DELAY_MILLIS)
                 lock.withLock {
                     if (isPaused.get()) {
-                        Log.d(TAG, "Suspend Countdown")
+                        Log.d("TimerService", "Suspend Countdown")
                         condition.await()
                     }
-                    timeState.value = 99 - it
-                    Log.d(TAG, "Countdown - ${99 - it}")
+                    _timeState.value = MAX_COUNT - it - 1
+                    Log.d("TimerService", "Countdown - ${MAX_COUNT - it - 1}")
                 }
             }
         }
     }
 
+    fun resume() {
+        isPaused.set(false)
+        lock.withLock { condition.signal() }
+    }
+
+    fun pause() {
+        isPaused.set(true)
+    }
+
+    companion object {
+        const val MAX_COUNT = 100
+        const val DELAY_MILLIS = 500L
+    }
+}
+
+class TimerService : Service() {
+    private val serviceScope = CoroutineScope(Dispatchers.IO)
+    private val timer = CountDownTimer(serviceScope)
+
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "Service created")
+        Log.d("TimerService", "Service created")
     }
 
     override fun onBind(intent: Intent): IBinder {
@@ -54,21 +73,17 @@ class TimerService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "Service destroyed")
+        serviceScope.cancel()
+        Log.d("TimerService", "Service destroyed")
     }
 
     inner class LocalBinder : Binder() {
 
-        fun observeTimeState() = timeState.asStateFlow()
+        fun observeTimeState() = timer.timeState
 
-        fun startTimer() {
-            isPaused.set(false)
-            lock.withLock { condition.signal() }
-        }
+        fun startTimer() = timer.resume()
 
-        fun pauseTimer() {
-            isPaused.set(true)
-        }
+        fun pauseTimer() = timer.pause()
 
         fun cancelService() {}
     }
