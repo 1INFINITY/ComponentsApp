@@ -17,6 +17,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ComponentsApp"
         tools:targetApi="31">
+
+        <provider
+            android:authorities="ru.mirea.ivashechkinav.componentsapp"
+            android:name=".providers.StartupTimeProvider"
+            android:exported="false"
+            android:initOrder="2147483647"/>
+        <activity
+            android:name=".SplashActivity"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -29,7 +38,7 @@
 
         <service android:name=".service.MyBackgroundService" />
         <service android:name=".service.MyForegroundService" />
-        <service android:name=".service.TimerService"/>
+        <service android:name=".service.TimerService" />
     </application>
 
 </manifest>
